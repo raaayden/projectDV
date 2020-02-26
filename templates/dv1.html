@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="utf-8">
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+
+    <!-- Load color scale -->
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
+    <!-- Create a div where the graph will take place -->
+    <div id="dv1"></div>
+
+    <style>
+        .bubbles {
+          stroke-width: 1px;
+          stroke: black;
+          opacity: .8
+        }
+        .bubbles:hover {
+          stroke: black;
+        }
+    </style>
+
+    <script>
+
+        // dimension and margins of the chart
+        var margin = {top: 40, right: 150, bottom: 60, left: 30},
+            width = 500 - margin.left - margin.right,
+            height = 400 - margin.top - margin.bottom;
+
+        // svg object to body of the page
+        var svg = d3.select("dv1")
+            .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("heigh", height + margin.top + margin.bottom)
+            .append("g")
+                .attr("transform",
+                        "translate(" + margin.left + "," + margin.top + ")");
+        
+        // read the data
+        cr = d3.csv("../data/all.csv", function(data){
+
+            //----------//
+            //   Axis   //
+            //----------//
+            
+            // X axis
+            var x = d3.scaleLinear()
+                .domain([0, 100000])
+                .range([0, width]);
+            svg.append("g")
+                .attr("transform", "translate(0" + height + ")")
+                .call(d3.axisBottom(x).ticks(3));
+
+            // X axis label
+            svg.append("text")
+                .attr("text-anchor", "end")
+                .attr("x", width)
+                .attr("y", height+50)//??
+                .text("GDP per capita");
+
+            // Y axis
+            var y = d3.scaleLinear()
+                .domain([500,50000]) // kena check
+                .range([height, 0]);
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Y axis label
+            svg.append("text")
+                .attr("text-anchor", "end")
+                .attr("x", 0)
+                .attr("y", -20 )
+                .text("Crime Cases")
+                .attr("text-anchor", "start")
+
+            // Scale for bubble size
+            var z = d3.scaleSqrt()
+                .domain([500,50000]) // kena check
+                .range([2,30]);
+
+            // Scale for bubble colour
+            var bColour = d3.scaleOrdinal()
+                .domain(["Johor", "Kedah", "Kelantan", "Kuala Lumpur", "Melaka", "Negeri Sembilan",
+                "Pahang", "Perak", "Perlis", "Pulau Pinang", "Sarawak", "Sabah",
+                "Selangor", "Terengganu"])
+                .range(d3.schemeSet1);
+
+
+            //-------------//
+            //   Tooltip   //
+            //-------------//
+
+            // Tooltip div that is hidden by default
+            var tooltip = d3.select("dv1")
+                .append("div")
+                    .style("opacity", 0)
+                    .attr("class", "tooltip")
+                    .style("background-color", "black")
+                    .style("border-radius", "5px")
+                    .style("padding", "10px")
+                    .style("color", "white")
+
+            
+            // 3 functions to show or update or hide
+            var showTooltip = function(d){
+                tooltip
+                    .transition()
+                    .duration(200)
+                tooltip
+                    .style("opacity", 1)
+                    .html("State: " + d.State)
+                    .style("left", (d3.mouse(this)[0]+30) + "px")
+                    .style("top", (d3.mouse(this)[1]+30) + "px")
+            }
+
+            var moveToolTip = function(d) {
+                tooltip
+                    .style("left", (d3.mouse(this)[0]+30) + "px")
+                    .style("top", (d3.mouse(this)[1]+30) + "px")
+            }
+            var hideTooltip = function(d) {
+                tooltip
+                    .transition()
+                    .duration(200)
+                    .style("opacity", 0)
+            }
+
+
+            //----------------//
+            //   Hightlight   //
+            //----------------//
+
+            //when on group is hovered
+            var hightlight = function(d) {
+                // reduce opacity of others
+                d3.selectAll(".bubbles").style("opacity", .05)
+                // only one is not 
+                d3.selectAll("."+d).style("opacity", 1)
+            }
+
+            //when nothing hovered
+            var noHighlight = function(d){
+                d3.selectAll(".bubbles").style("opacity", 1)
+            }
+
+
+
+            //------------//
+            //   Circle   //
+            //------------//
+
+            // Dots
+            svg.append('g')
+                .selectAll('dot')
+                .data(data)
+                .enter()
+                .append('cirlce')
+                    .attr('class', function(d) { return "bubbles " +d.Year})
+                    .attr('cx', function(d) { return x(d.GDP); })
+                    .attr('cy', function(d) { return y(d.Total_Crime); })
+                    .attr('r', function(d) { return z(d.Total_Crime); })
+                    .style('fill', function(d) { return bColour(d.State); })
+                .on("mouseover", showTooltip)
+                .on("mousemove", moveToolTip)
+                .on("mouseleave", hideTooltip)
+
+
+            
+            //------------//
+            //   Legend   //
+            //------------//
+
+            //Legend: circles
+            var valuesToShow = [10000000, 100000000, 1000000000]
+            var xCircle = 390
+            var xLabel = 440
+            svg
+                .selectAll("legend")
+                .data(valuesToShow)
+                .enter()
+                .append("circle")
+                    .attr("cx", xCircle)
+                    .attr("cy", function(d){ return height - 100 - z(d)})
+                    .attr("r", function(d){ return z(d)})
+                    .style("fill", "none")
+                    .attr("stroke", "black")
+
+
+            // Legend: segments
+            svg
+                .selectAll("legend")
+                .data(valuesToShow)
+                .enter()
+                .append("line")
+                    .attr('x1', function(d){ return xCircle + z(d) } )
+                    .attr('x2', xLabel)
+                    .attr('y1', function(d){ return height - 100 - z(d) } )
+                    .attr('y2', function(d){ return height - 100 - z(d) } )
+                    .attr('stroke', 'black')
+                    .style('stroke-dasharray', ('2,2'))
+
+
+            //Legend: labels
+            svg
+                .selectAll("legend")
+                .data(valuesToShow)
+                .enter()
+                .append("text")
+                    .attr('x', xLabel)
+                    .attr('y', function(d){ return height - 100 - z(d) } )
+                    .text( function(d){ return d/1000000 } )
+                    .style("font-size", 10)
+                    .attr('alignment-baseline', 'middle')
+
+            //Legend: title
+            svg.append("text")
+                .attr('x', xCircle)
+                .attr('y', height - 100 + 30)
+                .text("Total Crime")
+                .attr('text-anchor', 'middle')
+
+            //one dot for in the legend 
+            var size = 20
+            var allgroups = ["2010","2011","2012","2013","2014","2015"]
+            svg.selectAll("myrect")
+                .data(allgroups)
+                .enter()
+                .append("circle")
+                    .attr("cx", 390)
+                    .attr("cy", function(d,i){ return 10 + i*(size+5)})
+                    .attr("r", 7)
+                    .style("fill", function(d){ return bColour(d)})
+                    .on("mouseover", hightlight)
+                    .on("mouseleave", noHighlight)
+
+            
+
+            //labels bseide legend dots
+            svg.selectAll("mylabels")
+                .data(allgroups)
+                .enter()
+                .append("text")
+                    .attr("x", 390 + size*.8)
+                    .attr("y", function(d,i){ return i*(size+5)+(size/2)})
+                    .style("fill", function(d){ return bColour(d)})
+                    .text(function(d){ return d})
+                    .attr("text-anchor", "left")
+                    .style("alignment-baseline", "middle")
+                    .on("mouseover", hightlight)
+                    .on("mouseleave", noHightlight)
+          
+        })
+
+    </script>
+    
+</html>
